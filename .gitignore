@@ -1,0 +1,33 @@
+# Ignore environment variables
+flask/.env
+
+# Ignore Python-related files
+flask/__pycache__/
+flask/*.pyc
+flask/*.pyo
+flask/.pytest_cache/
+flask/instance/
+
+
+
+# Ignore Node.js dependencies
+frontend/node_modules/
+frontend/.npm/
+frontend/.cache/
+
+# Ignore Node.js dependencies
+backend/node_modules/
+backend/.npm/
+backend/.venv/
+backend/venv/
+
+# Ignore build files
+frontend/dist/
+frontend/build/
+
+# Ignore OS and editor files
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
