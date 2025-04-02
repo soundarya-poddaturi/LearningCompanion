@@ -6,12 +6,12 @@ const ChatBox = () => {
     const[usermessage,setUser]=useState("")
     const response=()=>{
         setStack([...stack,usermessage])
-        axios.post("/chatresponse",{
+        axios.post("http://127.0.0.1:5000/chatresponse",{
             ques:usermessage
         })
         .then((response)=>{
-            console.log(response.data.anaylsis)
-            setStack([...stack,response.data.anaylsis])
+            console.log(response.data.response)
+            setStack([...stack,response.data.response])
         })
        
     }

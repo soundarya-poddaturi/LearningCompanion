@@ -1,9 +1,18 @@
+import os
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from dotenv import load_dotenv
+from groq import Groq
+import re
 from flask import Flask, request, jsonify
 import requests
 import fitz  # PyMuPDF for PDF text extraction
 import os
 from dotenv import load_dotenv
 from flask_cors import CORS
+from youtube_transcript_api import YouTubeTranscriptApi as yta 
+import google.generativeai as genai
+
 import json
 # Load environment variables
 load_dotenv()
@@ -146,6 +155,9 @@ def search_youtube(query, max_results=3):
         return [f"https://www.youtube.com/watch?v={video['id']['videoId']}" for video in videos]
     return ["No YouTube results found."]
 
+        
+
+
 # Function to search the web using Tavily
 def search_web(query, max_results=3):
     payload = {
@@ -220,5 +232,132 @@ def generate_career_guide():
     print("heyyyyyy")
     return jsonify({"error": "Failed to generate career guide"}), response.status_code
 
+
+def askgem(question):
+    genai.configure(api_key=GOOGLE_API_KEY)
+    model = genai.GenerativeModel('gemini-2.0-flash')
+    generation_config = {
+        "temperature": 0.9,
+        "top_p": 1,
+        "top_k": 1,
+        "max_output_tokens": 50000,
+            }
+    response = model.generate_content(question)
+    return response.text
+
+
+def transcribe_util(link):#Here pass the link only , copy it from the url 
+    ids=link.split("=")
+    vid_id=ids[1]
+    data=yta.get_transcript(vid_id,languages=['en'])
+    transcript=''
+    for value in data:
+        for key,val in value.items():
+            if key=="text":
+                transcript+=val
+
+    l=transcript.splitlines()
+    finaldata=" ".join(l)
+    return finaldata
+
+@app.route("/transcribe", methods=["POST"])
+def transcribe():
+    print(request)
+    data = request.json
+    user_link = data.get("link")
+
+    data=transcribe_util(user_link)
+    if len(data)<=40000:
+        to_return=askgem(data+"Explain it in very depth and extra information ")
+        print(to_return +"\n\n\n\n\n\n\n\n\n\n\n\n\n")
+    else:   
+        prev=0
+        to_return = ""
+        for i in range(0,len(data),5000):
+            to_return+=askgem(data[prev:i]+"Explain it in very depth and extra information ")
+            prev=i
+    return jsonify({"data": to_return})
+
+
+
+
+#chatbox
+# Load environment variables from a .env file
+
+# Initialize the Groq client using your API key
+groq_api_key = os.environ.get("GROQ_API_KEY")
+client = Groq(api_key=groq_api_key)
+print("Groq API Token loaded successfully!")
+
+def clean_response(text):
+    """
+    Cleans and formats the response:
+    - Removes unnecessary symbols like ** or •
+    - Ensures proper paragraph spacing
+    - Trims extra spaces
+    """
+    text = re.sub(r"\\(.?)\\*", r"\1", text)  # Remove bold markers
+    text = re.sub(r"•", "", text)  # Remove bullet points
+    text = re.sub(r"- ", "", text)  # Remove hyphenated list markers
+    text = re.sub(r"\n\s*\n", "\n\n", text.strip())  # Ensure clean paragraph breaks
+    return text
+
+def query_external_api(user_prompt):
+    """
+    Uses the Groq API to generate a response. The function builds a conversation
+    with a system prompt that instructs the model to behave strictly as an academic tutor
+    specialized in computer science. It is instructed to only provide factual and verified 
+    information and avoid hallucinations.
+    """
+    system_prompt = (
+        "You are an academic tutor chatbot specialized exclusively in computer science and related fields. "
+        "Your job is to answer study-related questions with clear, detailed, and accurate explanations. "
+    )
+    
+    # Build the conversation messages
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt}
+    ]
+    
+    try:
+        chat_completion = client.chat.completions.create(
+            messages=messages,
+            model="llama-3.3-70b-versatile"
+        )
+        raw_response = chat_completion.choices[0].message.content
+        return clean_response(raw_response)
+    except Exception as e:
+        print("API Error:", e)
+        return "I'm sorry, I encountered an error while processing your request."
+
+@app.route("/chatresponse", methods=["POST"])
+def chat():
+    # print("soundy\n\n\n\n\n\n\n\n\n\n")
+    data = request.get_json()
+    print(data)
+    user_message = data.get("ques", "")
+    print(user_message+"\n\n\n\n\n\n\n")
+    response_text = query_external_api(user_message)
+    print(response_text)
+    return jsonify({"response": response_text})
+
+
+    
+    
+    
+    
 if __name__ == '__main__':
     app.run(debug=True)
+
+
+
+
+
+
+
+
+
+
+ 
+
